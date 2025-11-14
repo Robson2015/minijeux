@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mon Canvas</title>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="600" style="border:1px solid black;"></canvas>
+
+  <script>
+    // 1️⃣ Sélection du canvas dans le HTML
+    const canvas = document.getElementById('gameCanvas');
+
+    // 2️⃣ Création du "contexte" de dessin (2D ou WebGL)
+    const ctx = canvas.getContext('2d');
+
+    // 3️⃣ Dessiner un rectangle
+    ctx.fillStyle = 'blue'; // couleur du remplissage
+    ctx.fillRect(100, 100, 200, 150); // x, y, largeur, hauteur
+
+    // 4️⃣ Dessiner du texte
+    ctx.fillStyle = 'red';
+    ctx.font = '30px Arial';
+    ctx.fillText('Hello Canvas!', 300, 300);
+  </script>
+</body>
+</html>

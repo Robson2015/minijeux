@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Collector - Phaser Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 25px;
+            border-radius: 8px;
+        }
+
+        #game-info {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 18px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+
+        <div class="btn-container">
+        <button id="startBtn">Démarrer</button>
+        <button id="pauseBtn" style="display: none;">Pause</button>
+        <button id="resumeBtn" style="display: none;">Reprendre</button>
+        <button id="resetScoreBtn" style="display: none;">Réinitialiser Score</button>
+        </div>
+    </div>
+    <div id="ui">Score: <span id="score">0</span></div>
+    <div id="game-info">Utilise les flèches ou ZQSD pour bouger | Collecte les étoiles dorées!</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+    <script>
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            parent: 'game-container',
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update,
+                render: render
+            },
+            render: {
+                pixelArt: true,
+                antialias: false
+            }
+        };
+
+        let game;
+        let score = 0;
+        let player;
+        let stars;
+        let cursors;
+        let keyW, keyA, keyS, keyD;
+
+        function preload() {
+            // Pas de ressources externes à charger
+        }
+
+        function create() {
+            // Créer le joueur (carré bleu)
+            player = this.add.rectangle(400, 300, 30, 30, 0x4c9aff);
+            this.physics.add.existing(player);
+            player.body.setCollideWorldBounds(true);
+            player.body.setBounce(0.2, 0.2); 
+            player.body.setDrag(0.9, 0.9);
+
+            // Créer le groupe d'étoiles
+            stars = this.physics.add.group();
+            spawnStar.call(this);
+
+            // Configurer les contrôles clavier
+            cursors = this.input.keyboard.createCursorKeys();
+            keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+            keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+            keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+            keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+
+            // Collision entre joueur et étoiles
+            this.physics.add.overlap(player, stars, collectStar, null, this);
+        }
+
+        function update() {
+            // Réinitialiser la vélocité
+            player.body.setVelocity(0, 0);
+
+            // Contrôles flèches
+            if (cursors.left.isDown || keyA.isDown) {
+                player.body.setVelocityX(-250);
+            } else if (cursors.right.isDown || keyD.isDown) {
+                player.body.setVelocityX(250);
+            }
+
+            if (cursors.up.isDown || keyW.isDown) {
+                player.body.setVelocityY(-250);
+            } else if (cursors.down.isDown || keyS.isDown) {
+                player.body.setVelocityY(250);
+            }
+        }
+
+        function render() {
+            // Optionnel : debug rendering
+        }
+
+        function spawnStar() {
+            const x = Phaser.Math.Between(50, 750);
+            const y = Phaser.Math.Between(50, 550);
+            const star = this.add.polygon(x, y, [0, -15, 4, -4, 15, -4, 6, 3, 9, 15, 0, 9, -9, 15, -6, 3, -15, -4, -4, -4], 0xffd700);
+            this.physics.add.existing(star);
+            star.body.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
+            star.body.setCollideWorldBounds(true);
+            star.body.setBounce(1, 1);
+            stars.add(star);
+        }
+
+        function collectStar(player, star) {
+            star.destroy();
+            score += 10;
+            document.getElementById('score').textContent = score;
+            
+            // Créer une nouvelle étoile
+            spawnStar.call(this);
+        }
+
+            // BOUTONS
+    startBtn.addEventListener("click", () => {
+      if (!game) game = new Phaser.Game(config);
+      startBtn.style.display = "none";
+      pauseBtn.style.display = "inline-block";
+      resetScoreBtn.style.display = "inline-block";
+    });
+
+    </script>
+</body>
+</html>

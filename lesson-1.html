@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phaser - Mouvement simple (Canvas centré)</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      border: 3px solid #0f0;
+      border-radius: 8px;
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+  <!-- Phaser -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+
+  <script>
+    // === CONFIGURATION DU JEU ===
+    const config = {
+      type: Phaser.CANVAS,          // forcer l’utilisation d’un vrai <canvas>
+      width: 500,
+      height: 300,
+      backgroundColor: '#222',
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 0 } }
+      },
+      scene: { preload, create, update }
+    };
+
+    const game = new Phaser.Game(config);
+
+    let player, cursors;
+    const speed = 200;
+    const jumppower = -1000
+
+    function preload() {
+      // Crée un carré vert comme texture du joueur
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x00ff66, 1);
+      g.fillRect(0, 0, 40, 40);
+      g.generateTexture('player', 20, 20);
+      g.destroy();
+    }
+
+    function create() {
+      // Positionner le joueur au centre du canvas
+      const { width, height } = this.sys.game.canvas;
+      player = this.physics.add.sprite(250, 150, 'player');
+      player.setCollideWorldBounds(true);
+
+      // Contrôles clavier
+      cursors = this.input.keyboard.createCursorKeys();
+
+      // Texte d’instructions
+      this.add.text(10, 10, 'Utilise les flèches pour bouger le carré', {
+        font: '16px Arial',
+        fill: '#fff'
+      });
+    }
+
+    function update() {
+      player.setVelocity(0);
+      if (cursors.left.isDown)  player.setVelocityX(-speed);
+      if (cursors.right.isDown) player.setVelocityX(speed);
+      if (cursors.up.isDown)    player.setVelocityY(jumppower);
+      if (cursors.down.isDown)  player.setVelocityY(-jumppower);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phaser - Déplacement du Joueur</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1e1e1e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #game-container {
+      box-shadow: 0 0 25px rgba(0,0,0,0.5);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+  <script>
+    class SimpleMove extends Phaser.Scene {
+      constructor() {
+        super('SimpleMove');
+      }
+
+      create() {
+        // Création du joueur : un carré rouge
+        this.player = this.add.rectangle(100, 500, 10, 20, 0xff0000);
+        this.physics.add.existing(this.player);
+        this.player.body.setCollideWorldBounds(true); // Empêche de sortir de l'écran
+
+        // Récupération des touches directionnelles
+        this.cursors = this.input.keyboard.createCursorKeys();
+
+        // (optionnel) pour ceux qui préfèrent ZQSD
+       // this.keys = this.input.keyboard.addKeys('Z,Q,S,D');
+
+        // Vitesse du joueur
+        this.speed = 200;
+
+        // Texte d'aide
+        this.helpText = this.add.text(10, 10, 'Utilise les flèches ou ZQSD pour bouger', {
+          font: '18px Arial',
+          fill: '#ffffff'
+        }).setScrollFactor(0);
+      }
+
+      update() {
+        // Réinitialiser la vitesse à chaque frame
+        this.player.body.setVelocity(0);
+
+        // --- Contrôles clavier ---
+        if (this.cursors.left.isDown ) {
+          this.player.body.setVelocityX(-this.speed);
+        } else if (this.cursors.right.isDown) {
+          this.player.body.setVelocityX(this.speed);
+        }
+
+        if (this.cursors.up.isDown ) {
+          this.player.body.setVelocityY(-this.speed);
+        } else if (this.cursors.down.isDown ) {
+          this.player.body.setVelocityY(this.speed);
+        }
+      }
+    }
+
+    // --- Configuration Phaser ---
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      backgroundColor: '#20232a',
+      parent: 'game-container',
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 0 }, debug: false }
+      },
+      scene: [SimpleMove]
+    };
+
+    const game = new Phaser.Game(config);
+  </script>
+</body>
+</html>

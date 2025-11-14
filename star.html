@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phaser - Étape 2 : Stars qui tombent</title>
+  <style>
+    body {
+      margin: 0;
+      background: #1e1e1e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #game-container {
+      box-shadow: 0 0 25px rgba(0,0,0,0.5);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+  <script>
+    class StarFalling extends Phaser.Scene {
+      constructor() {
+        super('StarFalling');
+      }
+
+      create() {
+        // === Joueur ===
+        this.player = this.add.rectangle(400, 550, 40, 40, 0x4c9aff);
+        this.physics.add.existing(this.player);
+        this.player.body.setCollideWorldBounds(true);
+
+        // === Contrôles ===
+        this.cursors = this.input.keyboard.createCursorKeys();
+        this.keys = this.input.keyboard.addKeys('W,A,S,D');
+        this.speed = 200;
+
+        // === Groupe d’étoiles ===
+        this.stars = this.physics.add.group(); // contiendra toutes les étoiles
+        this.spawnTimer = 0; // compteur pour générer régulièrement des étoiles
+
+        // === Texte d’infos ===
+        this.infoText = this.add.text(10, 10, 'Utilise les flèches | Les étoiles tombent du ciel', {
+          font: '18px Arial',
+          fill: '#ffffff'
+        });
+
+        // --- Générer une texture "star" à partir d'un polygon (pour utiliser physics.add.image) ---
+        // points de l'étoile (comme dans ton polygon)
+        const pts = [0,-15,4,-4,15,-4,6,3,9,15,0,9,-9,15,-6,3,-15,-4,-4,-4];
+        // config texture
+        const texSize = 64;
+        const center = texSize / 2;
+        const scale = 1.6;
+
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
+        // fond transparent
+        g.clear();
+        g.fillStyle(0xffd700, 1);
+        // construire array de points {x,y}
+        const polyPoints = [];
+        for (let i = 0; i < pts.length; i += 2) {
+          const px = pts[i];
+          const py = pts[i + 1];
+          polyPoints.push({ x: center + px * scale, y: center + py * scale });
+        }
+        g.fillPoints(polyPoints, true);
+        // léger contour
+        g.lineStyle(2, 0xffb700, 1);
+        g.strokePoints(polyPoints, true);
+        g.generateTexture('star', texSize, texSize);
+        g.destroy();
+
+        // spawn initial pour vérification visuelle
+        this.spawnStar();
+        this.spawnStar();
+      }
+
+      update() {
+        // --- Déplacement joueur ---
+        this.player.body.setVelocity(0);
+        if (this.cursors.left.isDown || this.keys.A.isDown) this.player.body.setVelocityX(-this.speed);
+        if (this.cursors.right.isDown || this.keys.D.isDown) this.player.body.setVelocityX(this.speed);
+        if (this.cursors.up.isDown || this.keys.W.isDown) this.player.body.setVelocityY(-this.speed);
+        if (this.cursors.down.isDown || this.keys.S.isDown) this.player.body.setVelocityY(this.speed);
+
+        // --- Création d’une nouvelle étoile toutes les 60 frames (environ 1 seconde) ---
+        this.spawnTimer++;
+        if (this.spawnTimer > 60) {
+          this.spawnStar();
+          this.spawnTimer = 0;
+        }
+
+        // --- Nettoyage : supprimer les étoiles sorties de l’écran ---
+        this.stars.children.each(star => {
+          if (star.y > 620) star.destroy();
+        }, this);
+      }
+
+      // === Fonction pour créer une étoile ===
+      spawnStar() {
+        const x = Phaser.Math.Between(50, 750);
+        const y = -40; // spawn au-dessus de l'écran
+        const star = this.physics.add.image(x, y, 'star');
+
+        // vitesse verticale positive -> descend
+        const vy = 150 + Phaser.Math.Between(0, 100);
+        star.setVelocityY(Math.abs(vy));
+
+        // légère dérive horizontale
+        star.setVelocityX(Phaser.Math.Between(-40, 40));
+
+        // taille aléatoire et body approximatif
+        const s = Phaser.Math.FloatBetween(0.7, 1.1);
+        star.setScale(s);
+        const radius = Math.max(6, (star.displayWidth / 2) | 0);
+        star.body.setCircle(radius, (star.displayWidth / 2) - radius, (star.displayHeight / 2) - radius);
+
+        this.stars.add(star);
+      }
+    }
+
+    // === Configuration Phaser ===
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      backgroundColor: '#20232a',
+      parent: 'game-container',
+      physics: {
+        default: 'arcade',
+        arcade: { gravity: { y: 0 }, debug: false }
+      },
+      scene: [StarFalling]
+    };
+
+    const game = new Phaser.Game(config);
+  </script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stars Game - Space Shooter</title>
+  <link rel="stylesheet" href="./assets/css/style.css" />
+
+</head>
+<body>
+
+
+  <div id="game-container">
+    <h1 class="title">🚀 Space Shooter 🌌</h1>
+
+    <div class="btn-container">
+      <a href="/" class="btn-back">Retour </a>
+      <button id="startBtn">Démarrer</button>
+      <button id="pauseBtn" style="display: none;">Pause</button>
+      <button id="resumeBtn" style="display: none;">Reprendre</button>
+      <button id="resetScoreBtn" style="display: none;">Réinitialiser Score</button>
+    </div>
+
+    <div id="scoreboard" style="display: none;">
+      <span id="currentScore">Score : 0</span>
+      <span id="bestScore">Meilleur score : 0</span>
+    </div>
+
+    <div id="popup" style="display: none;">
+      <h2>💥 Game Over 💥</h2>
+      <p>Ton score : <span id="finalScore">0</span></p>
+      <button onclick="restartGame()">Recommencer</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+
+  <script>
+    let game;
+    let player, cursors, stars, asteroids, enemies, bullets;
+    let score = 0;
+    let gameOver = false;
+    let gameOverSound;
+    let lastShotTime = 0;
+    let highScore = localStorage.getItem('highScore') || 0;
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const resetScoreBtn = document.getElementById("resetScoreBtn");
+
+    const scoreboard = document.getElementById("scoreboard");
+
+    const currentScoreEl = document.getElementById("currentScore");
+    const bestScoreEl = document.getElementById("bestScore");
+
+    bestScoreEl.textContent = "Meilleur score : " + highScore;
+
+    const config = {
+      type: Phaser.AUTO,
+      width: 900,
+      height: 600,      
+      parent: 'game-container',
+      backgroundColor: "#000022",
+      physics: { default: "arcade", arcade: { gravity: { y: 0 }, debug: false } },
+      scene: { preload, create, update }
+    };
+
+    function preload() {
+      this.load.image("sky", "./assets/images/sky.jpg");
+      this.load.image("star", "./assets/images/star.png");
+      this.load.image("player", "./assets/images/player.png");
+      this.load.image("asteroid", "./assets/images/asteroid.png");
+      this.load.image("enemy", "./assets/images/enemi.png");
+      this.load.image("bullet", "./assets/images/bullet.png");
+      this.load.image("enemyBullet", "./assets/images/bullet-enemie.png");
+      this.load.image("boom", "./assets/images/boom.png");
+
+      this.load.audio("shootSound", "./assets/sounds/shoot.mp3");
+      this.load.audio("boomSound", "./assets/sounds/boom.mp3");
+      this.load.audio("fondSound", "./assets/sounds/piano.mp3");
+
+      this.load.audio("gameover", "assets/sounds/gameover.mp3"); 
+      
+    }
+
+    function create() {
+      const { width, height } = this.sys.game.canvas;
+      this.add.image(width / 2, height / 2, "sky").setScale(0.5);
+
+
+      this.bgMusic = this.sound.add("fondSound", { loop: true, volume: 0.5 });
+      this.bgMusic.play();
+
+      this.boomSound = this.sound.add("boomSound");
+      this.shootSound = this.sound.add("shootSound", { volume: 0.1 });
+
+      this.gameOver = this.sound.add("gameover");
+
+      player = this.physics.add.sprite(width / 2, height - 80, "player").setScale(0.9);
+      player.setCollideWorldBounds(true);
+
+      stars = this.physics.add.group({ key: "star", repeat: 10, setXY: { x: 80, y: -100, stepX: 100 } }); 
+      stars.children.iterate((s) => { 
+        s.setScale(0.5); 
+        s.setVelocityY(Phaser.Math.Between(60, 130)); 
+      });
+
+      asteroids = this.physics.add.group({ key: "asteroid", repeat: 4, setXY: { x: 200, y: -150, stepX: 130 } });
+      asteroids.children.iterate((a) => { 
+        a.setScale(0.6); 
+        a.setVelocityY(Phaser.Math.Between(100, 200)); 
+        a.setAngularVelocity(Phaser.Math.Between(-250, 250)); 
+      });
+
+      enemies = this.physics.add.group({ key: "enemy", repeat: 2, setXY: { x: 250, y: -250, stepX: 250 } });
+      enemies.children.iterate((e) => {
+        e.setScale(0.7);
+        e.setVelocityY(Phaser.Math.Between(80, 160));
+
+        // Mouvement horizontal aléatoire
+        const direction = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+        e.setData("moveDir", direction);
+        e.setVelocityX(100 * direction);
+      });
+
+
+      bullets = this.physics.add.group();
+      enemyBullets = this.physics.add.group();
+
+      this.physics.add.overlap(player, stars, collectStar, null, this);
+      this.physics.add.overlap(player, asteroids, () => hitSomething("asteroid", this), null, this);
+      this.physics.add.overlap(player, enemies, () => hitSomething("enemy", this), null, this);
+      this.physics.add.overlap(bullets, enemies, bulletHitEnemy, null, this);
+      this.physics.add.overlap(player, enemyBullets, playerHitByEnemyBullet, null, this);
+
+
+      spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      cursors = this.input.keyboard.createCursorKeys();
+    }
+
+    function update(time) {
+      if (gameOver) return;
+     
+      player.setVelocityX(0);
+      if (cursors.left.isDown) player.setVelocityX(-250);
+      else if (cursors.right.isDown) player.setVelocityX(250);
+      
+      if (cursors.up.isDown) player.setVelocityY(-200);
+      else if (cursors.down.isDown) player.setVelocityY(200);
+      else player.setVelocityY(0);
+
+
+     if (Phaser.Input.Keyboard.JustDown(spaceKey) && time > lastShotTime + 300) {
+        shootBullet.call(this);
+        lastShotTime = time;
+      }
+
+      stars.children.iterate((s) => { if (s.y > 600) resetY(s, -80, -10); });
+      asteroids.children.iterate((a) => { if (a.y > 600) resetY(a, -120, -20); });
+      enemies.children.iterate((e) => { if (e.y > 600) resetY(e, -150, -50); });
+
+      bullets.children.iterate((b) => { if (b && b.y < -20) b.destroy(); });
+
+      enemies.children.iterate((e) => {
+        if (e.x < 50) {
+          e.setVelocityX(100);
+          e.setData("moveDir", 1);
+        } else if (e.x > 850) {
+          e.setVelocityX(-100);
+          e.setData("moveDir", -1);
+        }
+      });
+
+      if (Phaser.Math.Between(0, 100) < 2) { // ~2% de chance à chaque frame
+        const shooter = Phaser.Utils.Array.GetRandom(enemies.getChildren());
+        if (shooter && shooter.active) {
+          shootEnemyBullet.call(this, shooter);
+        }
+      }
+
+    }
+
+    function resetY(obj, min, max) {
+      obj.y = Phaser.Math.Between(min, max);
+      obj.x = Phaser.Math.Between(50, 850);
+      obj.setVelocityY(Phaser.Math.Between(80, 160));
+    }
+
+    function collectStar(player, star) {
+      star.disableBody(true, true);
+      score += 10;
+      currentScoreEl.textContent = "Score : " + score;
+      setTimeout(() => { 
+        star.enableBody(true, Phaser.Math.Between(50, 850), -20, true, true).setScale(0.5); 
+      }, 800);
+    }
+
+    function shootBullet() {
+      const bullet = bullets.create(player.x, player.y - 30, "bullet").setScale(2);
+      bullet.setVelocityY(-500);
+      this.shootSound.play();
+    }
+
+
+    function shootEnemyBullet(enemy) {
+      const bullet = enemyBullets.create(enemy.x, enemy.y + 20, "enemyBullet").setScale(1.5);
+      bullet.setVelocityY(300); // descend vers le joueur
+      
+    }
+
+   function bulletHitEnemy(bullet, enemy) {
+      const scene = enemy.scene;
+
+      // 💥 Effet d'explosion visuel
+      const boom = scene.add.image(enemy.x, enemy.y, "boom").setScale(1.2);
+      boom.setDepth(10);
+      scene.time.delayedCall(400, () => boom.destroy());
+
+      // 🔊 Effet sonore
+      scene.boomSound.play();
+
+      // Supprime bullet et ennemi
+      bullet.destroy();
+      enemy.disableBody(true, true);
+
+      // Score
+      score += 20;
+      currentScoreEl.textContent = "Score : " + score;
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+        bestScoreEl.textContent = "Meilleur score : " + highScore;
+      }
+
+      // Réapparition de l'ennemi
+      scene.time.delayedCall(1500, () => {
+        enemy.enableBody(true, Phaser.Math.Between(50, 850), -50, true, true).setScale(0.7);
+        enemy.setVelocityY(Phaser.Math.Between(80, 160));
+      });
+    }
+
+    function playerHitByEnemyBullet(player, bullet) {
+      bullet.destroy();
+      hitSomething("enemyBullet", player.scene); // 💥 Game Over
+      this.gameOver.play();
+    }
+
+    function hitSomething(type, scene) {
+      if (gameOver) return;      
+      gameOver = true;      
+      scene.physics.pause();      
+      player.setTint(0xff0000);
+      document.getElementById("finalScore").textContent = score;      
+      document.getElementById("popup").style.display = "block";
+    }
+
+    function restartGame() {
+      document.getElementById("popup").style.display = "none";
+      score = 0;
+      currentScoreEl.textContent = "Score : 0";
+      gameOver = false;
+      if (game) game.destroy(true);
+      game = new Phaser.Game(config);
+    }
+
+    // BOUTONS
+    startBtn.addEventListener("click", () => {
+      if (!game) game = new Phaser.Game(config);
+      startBtn.style.display = "none";
+      pauseBtn.style.display = "inline-block";
+      resetScoreBtn.style.display = "inline-block";
+      scoreboard.style.display = "block";
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      if (game && !gameOver) {
+        game.scene.scenes[0].physics.pause();
+        pauseBtn.style.display = "none";
+        resumeBtn.style.display = "inline-block";
+      }
+    });
+
+    resumeBtn.addEventListener("click", () => {
+      if (game && !gameOver) {
+        game.scene.scenes[0].physics.resume();
+        resumeBtn.style.display = "none";
+        pauseBtn.style.display = "inline-block";
+      }
+    });
+
+    resetScoreBtn.addEventListener("click", () => {
+      score = 0;
+      currentScoreEl.textContent = "Score : 0";
+    });
+  </script>
+</body>
+</html>

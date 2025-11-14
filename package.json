@@ -1,5 +1,16 @@
 {
+  "name": "minijeux",
+  "version": "1.0.0",
+  "main": "server.js",
   "dependencies": {
-    "express": "^5.1.0"
+    "cors": "2.8.5",
+    "express": "^5.1.0",
+    "phaser": "^3.90.0"
+  },
+  "scripts": {
+    "build": "npm start"
+  },
+  "devDependencies": {
+    "vite": "^7.2.2"
   }
 }

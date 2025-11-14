@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Pacman - Phaser 3</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
+  <link rel="stylesheet" href="./assets/css/style.css" />
+</head>
+<body>
+
+
+  <div id="game-content">
+    <div class="wrapper-game">
+        <h1 class="title">🚀 Space Shooter 🌌</h1>
+        <div class="btn-container">
+          <a href="/" class="btn-back">Retour</a>
+          <button id="startBtn">Démarrer</button>
+            <button id="pauseBtn" style="display: none;">Pause</button>
+            <button id="resumeBtn" style="display: none;">Reprendre</button>
+            <button id="resetScoreBtn" style="display: none;">Réinitialiser Score</button>
+        </div>
+    </div>  
+  </div>
+
+  <div id="popup">
+    <h2>💥 Game Over 💥</h2>
+    <p>Ton score : <span id="finalScore">0</span></p>
+    <button id="restartBtn" onclick="restartGame()">Recommencer</button>
+  </div>
+
+  <script>
+    const config = {
+      type: Phaser.AUTO,
+      width: 800,
+      height: 600,
+      backgroundColor: "#000",
+      parent: "wrapper-game",
+      physics: {
+        default: "arcade",
+        arcade: {
+          gravity: { y: 0 },
+          debug: false
+        }
+      },
+      scene: { preload, create, update }
+    };
+
+    // 🟢 On déclare `game` avec let pour pouvoir le recréer plus tard
+    let game;
+    let player, cursors, dots, enemies, walls, scoreText, levelText;
+    let score = 0;
+    let level = 1;
+    let gameOver = false;
+
+   const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const resetScoreBtn = document.getElementById("resetScoreBtn");
+
+    // 🟩 Lancement du jeu initial
+
+    function preload() {
+      this.load.image("dot", "./assets/images/star.png");
+      this.load.image("enemy", "https://labs.phaser.io/assets/sprites/red_ball.png");
+      this.load.image("player", "./assets/images/tn.png");
+      this.load.image("wall", "https://labs.phaser.io/assets/sprites/block.png");
+    }
+
+    function create() {
+      scoreText = this.add.text(16, 16, "Score: 0", {
+        fontSize: "22px",
+        fill: "#fff"
+      });
+      levelText = this.add.text(650, 16, "Niveau: " + level, {
+        fontSize: "22px",
+        fill: "#0f0"
+      });
+
+      walls = this.physics.add.staticGroup();
+      const wallLayout = [
+        { x: 400, y: 50, width: 250, height: 20 },
+        { x: 400, y: 550, width: 200, height: 20 },
+        { x: 50, y: 300, width: 20, height: 300 },
+        { x: 750, y: 300, width: 20, height: 100 },
+        { x: 400, y: 300, width: 400, height: 20 },
+        { x: 200, y: 200, width: 200, height: 20 },
+        { x: 600, y: 400, width: 200, height: 20 }
+      ];
+
+      wallLayout.forEach((w) => {
+        const wall = walls.create(w.x, w.y, "wall").setOrigin(0.5);
+        wall.displayWidth = w.width;
+        wall.displayHeight = w.height;
+        wall.refreshBody();
+        wall.setTint(0x00ffff);
+      });
+
+      player = this.physics.add.sprite(100, 100, "player").setScale(0.8);
+      player.setCollideWorldBounds(true);
+
+      dots = this.physics.add.group();
+      for (let y = 100; y < 500; y += 50) {
+        for (let x = 100; x < 700; x += 50) {
+          if (!isInsideWall(x, y, wallLayout)) {
+            dots.create(x, y, "dot").setScale(0.3);
+          }
+        }
+      }
+
+      enemies = this.physics.add.group();
+      spawnEnemies(this, level);
+
+      this.physics.add.collider(player, walls);
+      this.physics.add.collider(enemies, walls);
+      this.physics.add.collider(enemies, enemies);
+      this.physics.add.overlap(player, dots, collectDot, null, this);
+      this.physics.add.collider(player, enemies, hitEnemy, null, this);
+
+      cursors = this.input.keyboard.createCursorKeys();
+    }
+
+    function spawnEnemies(scene, level) {
+      enemies.clear(true, true);
+      let count = level === 1 ? 3 : level === 2 ? 5 : 10;
+
+      for (let i = 0; i < count; i++) {
+        const e = enemies.create(
+          Phaser.Math.Between(150, 650),
+          Phaser.Math.Between(150, 450),
+          "enemy"
+        );
+        e.setScale(0.5);
+        e.setVelocity(Phaser.Math.Between(-150, 150), Phaser.Math.Between(-150, 150));
+        e.setBounce(1);
+        e.setCollideWorldBounds(true);
+      }
+    }
+
+    function isInsideWall(x, y, wallLayout) {
+      return wallLayout.some(
+        (w) =>
+          x > w.x - w.width / 2 &&
+          x < w.x + w.width / 2 &&
+          y > w.y - w.height / 2 &&
+          y < w.y + w.height / 2
+      );
+    }
+
+    function update() {
+      if (gameOver) return;
+
+      player.setVelocity(0);
+      if (cursors.left.isDown) player.setVelocityX(-200);
+      else if (cursors.right.isDown) player.setVelocityX(200);
+      if (cursors.up.isDown) player.setVelocityY(-200);
+      else if (cursors.down.isDown) player.setVelocityY(200);
+    }
+
+    function collectDot(player, dot) {
+      dot.disableBody(true, true);
+      score += 10;
+      scoreText.setText("Score: " + score);
+
+      if (dots.countActive(true) === 0) {
+        nextLevel(this);
+      }
+    }
+
+    function nextLevel(scene) {
+      if (level < 3) {
+        level++;
+        levelText.setText("Niveau: " + level);
+        dots.children.iterate((d) => d.enableBody(true, d.x, d.y, true, true));
+        spawnEnemies(scene, level);
+      } else {
+        scene.physics.pause();
+        scene.add.text(200, 280, "🎉 VICTOIRE !", {
+          fontSize: "48px",
+          fill: "#ff0"
+        });
+        document.getElementById("popup").style.display = "block";
+        document.getElementById("finalScore").textContent = score;
+        gameOver = true;
+      }
+    }
+
+    function hitEnemy(player, enemy) {
+      if (gameOver) return;
+      this.physics.pause();
+      player.setTint(0xff0000);
+      scoreText.setText("💀 GAME OVER - Score: " + score);
+      document.getElementById("popup").style.display = "block";
+      document.getElementById("finalScore").textContent = score;
+      gameOver = true;
+    }
+
+    // 🔁 Fonction pour recommencer
+    function restartGame() {
+      document.getElementById("popup").style.display = "none";
+      score = 0;
+      level = 1;
+      gameOver = false;
+      game.destroy(true);
+      game = new Phaser.Game(config);
+    }
+
+     startBtn.addEventListener("click", () => {
+      if (!game) game = new Phaser.Game(config);
+      startBtn.style.display = "none";
+      pauseBtn.style.display = "inline-block";
+      resetScoreBtn.style.display = "inline-block";
+      scoreboard.style.display = "block";
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      if (game && !gameOver) {
+        game.scene.scenes[0].physics.pause();
+        pauseBtn.style.display = "none";
+        resumeBtn.style.display = "inline-block";
+      }
+    });
+
+    resumeBtn.addEventListener("click", () => {
+      if (game && !gameOver) {
+        game.scene.scenes[0].physics.resume();
+        resumeBtn.style.display = "none";
+        pauseBtn.style.display = "inline-block";
+      }
+    });
+
+    resetScoreBtn.addEventListener("click", () => {
+      score = 0;
+      currentScoreEl.textContent = "Score : 0";
+    });
+  </script>
+</body>
+</html>
